@@ -8,3 +8,12 @@ def main_menu():
     print("2. Skapa nytt alarm")
     print("q. Avsluta programmet")
     print("-" * 48)
+
+
+def alarm_menu():
+    clear_screen()
+    print("=== SKAPA NYTT ALARM ===")
+    print("1. Skapa CPU-alarm")
+    print("2. Skapa minnes-alarm")
+    print("Enter. Tillbaka till huvudmeny")
+    print("-" * 48)

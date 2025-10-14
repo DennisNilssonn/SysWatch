@@ -1,4 +1,5 @@
 from utils import clear_screen
+from ui import alarm_menu
 
 
 def create_new_alarm(alarm_type):
@@ -18,14 +19,9 @@ def create_new_alarm(alarm_type):
         return False
 
 
-def alarm_menu():
+def set_alarm():
     while True:
-        clear_screen()
-        print("=== SKAPA NYTT ALARM ===")
-        print("1. Skapa CPU-alarm")
-        print("2. Skapa minnes-alarm")
-        print("Enter. Tillbaka till huvudmeny")
-        print("-" * 48)
+        alarm_menu()
         choice = input("Välj ett alternativ: ").lower().strip()
         if choice == "1":
             if create_new_alarm("cpu"):

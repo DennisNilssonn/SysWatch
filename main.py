@@ -1,6 +1,6 @@
 from ui import main_menu
 from monitor import monitor_system
-from alarm import alarm_menu
+from alarm import set_alarm
 
 
 def main():
@@ -10,7 +10,7 @@ def main():
         if choice == "1":
             monitor_system()
         elif choice == "2":
-            alarm_menu()
+            set_alarm()
         elif choice == "q":
             print("Avslutar programmet...")
             break
