@@ -15,5 +15,7 @@ def alarm_menu():
     print("=== SKAPA NYTT ALARM ===")
     print("1. Skapa CPU-alarm")
     print("2. Skapa minnes-alarm")
+    print("3. Visa sparade alarm")
+    print("4. Ta bort alarm")
     print("Enter. Tillbaka till huvudmeny")
     print("-" * 48)
