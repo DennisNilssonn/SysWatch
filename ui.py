@@ -1,9 +1,11 @@
-from utils import clear_screen
+from utils import clear_screen, center_text
 
 
 def main_menu():
     clear_screen()
-    print(f"{'*'*20}SYSWATCH{'*'*20}\n")
+    divider("=")
+    print(center_text("SYSWATCH"))
+    divider("=")
     print("1. Övervaka systemet")
     print("2. Skapa nytt alarm")
     print("q. Avsluta programmet")
@@ -12,10 +14,15 @@ def main_menu():
 
 def alarm_menu():
     clear_screen()
-    print("=== SKAPA NYTT ALARM ===")
-    print("1. Skapa CPU-alarm")
-    print("2. Skapa minnes-alarm")
-    print("3. Visa sparade alarm")
-    print("4. Ta bort alarm")
+    divider("=")
+    print(center_text("ALARM MENY"))
+    divider("=")
+    print("1. Skapa alarm")
+    print("2. Visa sparade alarm")
+    print("3. Ta bort alarm")
     print("Enter. Tillbaka till huvudmeny")
     print("-" * 48)
+
+
+def divider(icon):
+    print(icon * 48)

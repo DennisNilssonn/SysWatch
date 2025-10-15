@@ -1,154 +1,261 @@
 import json
 import os
 from datetime import datetime
-from utils import clear_screen
-from ui import alarm_menu
+from ui import alarm_menu, divider
+from utils import clear_screen, center_text
 
 
 class AlarmManager:
     def __init__(self, filename="alarms.json"):
         self.filename = filename
+        self.alarms = self.load_alarms_from_file()
 
-    def load_alarms(self):
-        if os.path.exists(self.filename):
-            try:
-                with open(self.filename, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                return {"cpu": [], "memory": []}
-        return {"cpu": [], "memory": []}
+    def load_alarms_from_file(self):
+        if not os.path.exists(self.filename):
+            return {"cpu": [], "memory": []}
 
-    def save_alarms(self, alarms):
+        try:
+            with open(self.filename, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return {"cpu": [], "memory": []}
+
+    def save_alarms_to_file(self):
         with open(self.filename, "w", encoding="utf-8") as f:
-            json.dump(alarms, f, ensure_ascii=False, indent=2)
+            json.dump(self.alarms, f, ensure_ascii=False, indent=2)
 
     def alarm_exists(self, alarm_type, alarm_value):
-        alarms = self.load_alarms()
-        if alarm_type in alarms:
-            for existing_alarm in alarms[alarm_type]:
-                if existing_alarm["value"] == alarm_value:
-                    return True
-        return False
+        alarms = self.alarms.get(alarm_type, [])
+        return any(alarm["value"] == alarm_value for alarm in alarms)
 
     def get_next_id(self, alarm_type):
-        """Hämtar nästa ID för alarmtypen"""
-        alarms = self.load_alarms()
-        if alarm_type in alarms and alarms[alarm_type]:
-            return max([alarm["id"] for alarm in alarms[alarm_type]]) + 1
-        return 1
+        alarms = self.alarms.get(alarm_type, [])
+        return max([alarm["id"] for alarm in alarms], default=0) + 1
 
-    def create_new_alarm(self, alarm_type):
-        try:
-            alarm_value = float(input("Ange alarm-värde (0-100%): "))
-            if 0 <= alarm_value <= 100:
-                if self.alarm_exists(alarm_type, alarm_value):
-                    print(f"Det finns redan ett {alarm_type}-alarm vid {alarm_value}%!")
-                    input("Tryck Enter för att försöka igen...")
-                    return False
+    def _display_header(self, title):
+        clear_screen()
+        divider("=")
+        print(center_text(title))
+        divider("=")
 
-                alarms = self.load_alarms()
+    def _display_message(self, title, message):
+        self._display_header(title)
+        print(message)
+        input("\nTryck Enter för att fortsätta...")
 
-                new_alarm = {
-                    "id": self.get_next_id(alarm_type),
-                    "value": alarm_value,
-                    "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                }
-                if alarm_type not in alarms:
-                    alarms[alarm_type] = []
-                alarms[alarm_type].append(new_alarm)
-
-                self.save_alarms(alarms)
-
-                print(f"{alarm_type}-alarm satt vid {alarm_value}% och sparat!")
-                input("Tryck Enter för att fortsätta...")
-                return True
-            else:
-                print("Ogiltigt värde. Använd 0-100.")
-                input("Tryck Enter för att försöka igen...")
-                return False
-        except ValueError:
-            print("Ogiltigt värde. Använd endast siffror.")
+    def _get_valid_input(self, prompt, validator, error_msg="Ogiltigt värde"):
+        while True:
+            value = input(prompt).strip()
+            result = validator(value)
+            if result is not None:
+                return result
+            print(error_msg)
             input("Tryck Enter för att försöka igen...")
+
+    def show_alarm_type_menu(self):
+
+        def validate_choice(choice):
+            if choice == "1":
+                return "cpu"
+            elif choice == "2":
+                return "memory"
+            elif choice.lower() == "q":
+                return "q"
+            return None
+
+        self._display_header("VÄLJ ALARMTYP")
+        print("1. CPU-alarm")
+        print("2. Minne-alarm\n")
+        print("q. Tillbaka")
+        divider("-")
+
+        choice = self._get_valid_input(
+            "Välj alternativ (1-2): ",
+            validate_choice,
+            "Ogiltigt val! Välj 1, 2 eller 'q' för att gå tillbaka.",
+        )
+
+        return None if choice == "q" else choice
+
+    def get_alarm_value(self, alarm_type):
+
+        def validate_value(value_str):
+            try:
+                value = float(value_str.replace("%", ""))
+                return value if 0 <= value <= 100 else None
+            except ValueError:
+                return None
+
+        self._display_header(f"VÄLJ VÄRDE FÖR {alarm_type.upper()}-ALARM")
+        print(f"Hur hög ska {alarm_type}-användningen vara innan")
+        print("alarmet utlöses?")
+        print("Välj mellan 0% - 100%")
+        divider("-")
+
+        return self._get_valid_input(
+            "Ange värde (0-100%): ",
+            validate_value,
+            "Ogiltigt värde! Använd endast siffror mellan 0-100%.",
+        )
+
+    def create_new_alarm(self):
+        alarm_type = self.show_alarm_type_menu()
+        if alarm_type is None:
             return False
 
-    def get_alarms_by_type(self, alarm_type):
-        alarms = self.load_alarms()
-        return alarms.get(alarm_type, [])
+        alarm_value = self.get_alarm_value(alarm_type)
 
-    def get_all_alarms(self):
-        return self.load_alarms()
+        if self.alarm_exists(alarm_type, alarm_value):
+            self._display_message(
+                "ALARM REDAN SPARAT",
+                f"Det finns redan ett {alarm_type}-alarm vid {alarm_value}%!",
+            )
+            return False
+
+        # Skapa och spara nytt alarm
+        new_alarm = self._create_alarm_object(alarm_type, alarm_value)
+        self._add_alarm_to_list(alarm_type, new_alarm)
+        self.save_alarms_to_file()
+
+        # Visa bekräftelse
+        self._display_message(
+            "ALARM SPARAT!",
+            f"{alarm_type.upper()}-alarm skapat vid {alarm_value}%\n"
+            f"Skapat: {new_alarm['created']}\n"
+            f"ID: {new_alarm['id']}",
+        )
+        return True
+
+    def _create_alarm_object(self, alarm_type, alarm_value):
+        return {
+            "id": self.get_next_id(alarm_type),
+            "value": alarm_value,
+            "created": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+
+    def _add_alarm_to_list(self, alarm_type, alarm):
+        if alarm_type not in self.alarms:
+            self.alarms[alarm_type] = []
+        self.alarms[alarm_type].append(alarm)
 
     def list_alarms(self):
-        alarms = self.load_alarms()
+        self._display_header("SPARADE ALARM")
 
-        if not alarms or (not alarms.get("cpu") and not alarms.get("memory")):
-            print("Inga alarm sparade.")
+        if not self._has_alarms():
+            print("Inga alarm sparade ännu.")
             return
 
         for alarm_type in ["cpu", "memory"]:
-            if alarm_type in alarms and alarms[alarm_type]:
-                print(f"\n{alarm_type.upper()}-ALARM:")
-                for alarm in alarms[alarm_type]:
-                    print(
-                        f"  ID: {alarm['id']} | Värde: {alarm['value']}% | Skapat: {alarm['created']}"
-                    )
+            self._display_alarms_for_type(alarm_type)
+
+    def _has_alarms(self):
+        return self.alarms and (self.alarms.get("cpu") or self.alarms.get("memory"))
+
+    def _display_alarms_for_type(self, alarm_type):
+        alarms = self.alarms.get(alarm_type, [])
+        if not alarms:
+            return
+
+        type_name = "CPU" if alarm_type == "cpu" else "MINNE"
+        print(f"{type_name}-ALARM:")
+
+        for alarm in alarms:
+            print(
+                f"ID: {alarm['id']} | Värde: {alarm['value']}% | Skapat: {alarm['created']}"
+            )
 
     def delete_alarm(self):
-        """Tar bort ett alarm baserat på typ och ID"""
-        alarm_type = input("Ange typ (cpu/memory): ").lower().strip()
+        self._display_header("TA BORT ALARM")
 
-        if alarm_type not in ["cpu", "memory"]:
-            print("Ogiltig typ. Använd 'cpu' eller 'memory'.")
+        alarm_type = self._get_alarm_type_input()
+        if not alarm_type:
             return
 
-        alarms = self.load_alarms()
+        if not self._validate_alarm_type_has_alarms(alarm_type):
+            return
 
-        if alarm_type not in alarms or not alarms[alarm_type]:
+        self._display_alarms_to_delete(alarm_type)
+        alarm_id = self._get_alarm_id_to_delete()
+
+        if self._delete_alarm_by_id(alarm_type, alarm_id):
+            print(f"{alarm_type}-alarm ID {alarm_id} borttaget!")
+            self.save_alarms_to_file()
+        else:
+            print(f"Alarm ID {alarm_id} hittades inte.")
+
+    def _get_alarm_type_input(self):
+
+        def validate_type(alarm_type):
+            clean_type = alarm_type.lower().strip()
+            return clean_type if clean_type in ["cpu", "memory"] else None
+
+        return self._get_valid_input(
+            "Ange typ (cpu/memory): ",
+            validate_type,
+            "Ogiltig typ. Använd 'cpu' eller 'memory'.",
+        )
+
+    def _validate_alarm_type_has_alarms(self, alarm_type):
+        if alarm_type not in self.alarms or not self.alarms[alarm_type]:
             print(f"Inga {alarm_type}-alarm hittades.")
-            return
+            return False
+        return True
 
+    def _display_alarms_to_delete(self, alarm_type):
         print(f"\nBefintliga {alarm_type}-alarm:")
-        for alarm in alarms[alarm_type]:
-            print(f"  ID: {alarm['id']} | Värde: {alarm['value']}%")
+        for alarm in self.alarms[alarm_type]:
+            print(f"ID: {alarm['id']} | Värde: {alarm['value']}%")
 
-        try:
-            alarm_id = int(input(f"\nAnge ID för {alarm_type}-alarm att ta bort: "))
+    def _get_alarm_id_to_delete(self):
 
-            # Ta bort alarmet
-            original_count = len(alarms[alarm_type])
-            alarms[alarm_type] = [
-                alarm for alarm in alarms[alarm_type] if alarm["id"] != alarm_id
-            ]
+        def validate_id(alarm_id_str):
+            try:
+                return int(alarm_id_str)
+            except ValueError:
+                return None
 
-            if len(alarms[alarm_type]) < original_count:
-                self.save_alarms(alarms)
-                print(f"{alarm_type}-alarm ID {alarm_id} borttaget!")
-            else:
-                print(f"Alarm ID {alarm_id} hittades inte.")
+        return self._get_valid_input(
+            "\nAnge ID för alarm att ta bort: ",
+            validate_id,
+            "Ogiltigt ID. Använd endast siffror.",
+        )
 
-        except ValueError:
-            print("Ogiltigt ID. Använd endast siffror.")
+    def _delete_alarm_by_id(self, alarm_type, alarm_id):
+        original_count = len(self.alarms[alarm_type])
+        self.alarms[alarm_type] = [
+            alarm for alarm in self.alarms[alarm_type] if alarm["id"] != alarm_id
+        ]
+        return len(self.alarms[alarm_type]) < original_count
 
 
 def set_alarm():
     alarm_manager = AlarmManager()
+    menu_actions = {
+        "1": alarm_manager.create_new_alarm,
+        "2": lambda: _show_alarms_and_wait(alarm_manager),
+        "3": lambda: _delete_alarm_and_wait(alarm_manager),
+    }
 
     while True:
         alarm_menu()
         choice = input("Välj ett alternativ: ").lower().strip()
-        if choice == "1":
-            if alarm_manager.create_new_alarm("cpu"):
-                break
-        elif choice == "2":
-            if alarm_manager.create_new_alarm("memory"):
-                break
-        elif choice == "3":
-            alarm_manager.list_alarms()
-            input("Tryck på Enter för att fortsätta...")
-        elif choice == "4":
-            alarm_manager.delete_alarm()
-            input("Tryck på Enter för att fortsätta...")
-        elif choice == "":
+
+        if choice == "":
             break
+        elif choice in menu_actions:
+            menu_actions[choice]()
         else:
-            input("Ogiltigt val. Tryck på Enter för att försöka igen...")
+            print("Ogiltigt val!")
+            input("Tryck Enter för att försöka igen...")
+
+
+def _show_alarms_and_wait(alarm_manager):
+    clear_screen()
+    alarm_manager.list_alarms()
+    input("\nTryck på Enter för att fortsätta...")
+
+
+def _delete_alarm_and_wait(alarm_manager):
+    clear_screen()
+    alarm_manager.delete_alarm()
+    input("\nTryck på Enter för att fortsätta...")
