@@ -6,6 +6,7 @@ import os
 from datetime import datetime
 from utils import clear_screen
 from ui import divider
+from logger import syswatch_logger
 
 
 def load_alarms():
@@ -54,6 +55,8 @@ def check_alarms(cpu_usage, memory_usage, disk_usage, alarms_data):
             warnings.append(
                 f"***VARNING, LARM AKTIVERAT, CPU ANVÄNDNING ÖVERSTIGER {alarm['value']}%***"
             )
+            # Logga att alarmet utlöstes
+            syswatch_logger.log_alarm_triggered("cpu", alarm["value"], cpu_usage)
             alarms_updated = True
 
     # Kolla minnes alarm
@@ -63,6 +66,8 @@ def check_alarms(cpu_usage, memory_usage, disk_usage, alarms_data):
             warnings.append(
                 f"***VARNING, LARM AKTIVERAT, MINNESANVÄNDNING ÖVERSTIGER {alarm['value']}%***"
             )
+            # Logga att alarmet utlöstes
+            syswatch_logger.log_alarm_triggered("memory", alarm["value"], memory_usage)
             alarms_updated = True
 
     # Kolla disk alarm
@@ -72,6 +77,8 @@ def check_alarms(cpu_usage, memory_usage, disk_usage, alarms_data):
             warnings.append(
                 f"***VARNING, LARM AKTIVERAT, DISKANVÄNDNING ÖVERSTIGER {alarm['value']}%***"
             )
+            # Logga att alarmet utlöstes
+            syswatch_logger.log_alarm_triggered("disk", alarm["value"], disk_usage)
             alarms_updated = True
 
     # Spara om något alarm gick av
@@ -137,6 +144,9 @@ def display_usage(cpu_usage, memory_usage, disk_usage, alarms_data, bars=50):
 
 
 def monitor_system():
+    # Logga att övervakning startar
+    syswatch_logger.log_monitoring_start()
+    
     def wait_for_enter():
         input()
 
@@ -172,3 +182,6 @@ def monitor_system():
         last_warnings = set(current_warnings)
 
         time.sleep(0.5)
+    
+    # Logga att övervakning stoppas när användaren trycker Enter
+    syswatch_logger.log_monitoring_stop()

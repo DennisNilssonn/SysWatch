@@ -4,6 +4,7 @@ import time
 import json
 import os
 from datetime import datetime
+from logger import syswatch_logger
 
 
 class JsonFile:
@@ -46,6 +47,9 @@ def validate_range_input(alarm_type, min_value=0, max_value=100):
         alarm_input = input(
             f"Choose {alarm_type} alarm value({min_value}-{max_value}%): "
         )
+
+        # Logga input direkt
+        syswatch_logger.log_input(alarm_input)
 
         if not alarm_input.isdigit():
             print("Invalid value. Please enter a number.")
@@ -95,6 +99,9 @@ def create_alarm():
         alarms_data[alarm_type].append(new_alarm)
         alarm_file.save_alarms(alarms_data)
 
+        # Logga att alarmet skapades
+        syswatch_logger.log_alarm_created(alarm_type, input_value)
+
         terminal_header(f"Saving {alarm_type} alarm at {input_value}%")
         time.sleep(1)
         return
@@ -106,6 +113,10 @@ def create_alarm():
     print("\nPress Enter to go back to main menu")
     print("-" * 48)
     choice = input("Choose an option: ").lower().strip()
+
+    # Logga input direkt
+    syswatch_logger.log_input(choice)
+
     if choice == "1":
         save_alarm("cpu")
     elif choice == "2":
@@ -179,6 +190,9 @@ def delete_alarm():
                     f"Välj nummer 1 - {len(all_alarms)} eller tryck enter för att avbryta: "
                 ).strip()
 
+            # Logga input direkt
+            syswatch_logger.log_input(choice)
+
             if choice == "":
                 return
 
@@ -190,13 +204,14 @@ def delete_alarm():
                 value = selected["alarm"]["value"]
 
                 print()
-                confirm = (
-                    input(
-                        f"Är du säker på att ta bort {alarm_type.upper()}: {value}%? (j/n): "
-                    )
-                    .lower()
-                    .strip()
+                confirm_input = input(
+                    f"Är du säker på att ta bort {alarm_type.upper()}: {value}%? (j/n): "
                 )
+
+                # Logga input direkt
+                syswatch_logger.log_input(confirm_input)
+
+                confirm = confirm_input.lower().strip()
 
                 if confirm in ["j", "ja", "y", "yes"]:
                     # Ta bort alarmet
@@ -205,6 +220,12 @@ def delete_alarm():
 
                     # Spara ändringar
                     alarm_file.save_alarms(alarms_data)
+
+                    # Logga att alarmet togs bort
+                    syswatch_logger.log_alarm_deleted(
+                        alarm_type, value, alarm_to_remove["id"]
+                    )
+
                     clear_screen()
                     terminal_header(
                         f"Alarm {alarm_type.upper()}: {value}% har tagits bort!"
