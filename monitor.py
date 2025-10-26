@@ -146,7 +146,7 @@ def display_usage(cpu_usage, memory_usage, disk_usage, alarms_data, bars=50):
 def monitor_system():
     # Logga att övervakning startar
     syswatch_logger.log_monitoring_start()
-    
+
     def wait_for_enter():
         input()
 
@@ -182,6 +182,6 @@ def monitor_system():
         last_warnings = set(current_warnings)
 
         time.sleep(0.5)
-    
+
     # Logga att övervakning stoppas när användaren trycker Enter
     syswatch_logger.log_monitoring_stop()
